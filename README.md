@@ -1,3 +1,11 @@
+### This is a forked project from [google-ar/three.ar.js](https://github.com/google-ar/three.ar.js)
+
+To get started, open Terminal, run `yarn` to install all dependencies. Then, input `yarn dev` to run the NodeJS Server for development.
+
+Be aware that you should keep checking the latest commit from source repo. To do so, add a new remote called  `google` with remote url `https://github.com/google-ar/three.ar.js.git`. Then, `git pull` to merge the latest commit from google-ar.
+
+
+
 # three.ar.js
 
 [![Build Status](http://img.shields.io/travis/google-ar/three.ar.js.svg?style=flat-square)](https://travis-ci.org/google-ar/three.ar.js)
