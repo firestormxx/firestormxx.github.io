@@ -17,7 +17,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>three.ar.js - Test2</title>
+  <title>three.ar.js - Test1</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, user-scalable=no,
   minimum-scale=1.0, maximum-scale=1.0">
@@ -66,12 +66,13 @@
 </head>
 <body>
 <div id="info">
-  <span class="title">模型跟随镜头移动</span><br/>
-  <span class="title">请耐心寻找平面，并在平面范围内移动手机</span><br/>
+  <span class="title">点击屏幕移动模型</span><br/>
+  <span class="title">请耐心寻找平面，待检测到平面后点击屏幕</span><br/>
   <span class="links">
     <a href="https://github.com/google-ar/three.ar.js">three.ar.js</a> -
     <a href="https://developers.google.com/ar/develop/web/getting-started#examples">examples</a>
   </span>
+
 </div>
 <script src="../third_party/three.js/three.js"></script>
 <script src="../third_party/three.js/VRControls.js"></script>
@@ -88,7 +89,6 @@ var canvas;
 var camera;
 var scene;
 var renderer;
-
 var mesh;
 
 /**
@@ -120,7 +120,7 @@ function init() {
   var arDebug = new THREE.ARDebug(vrDisplay, scene, {
     showLastHit: true,
     showPoseStatus: true,
-    showPlanes: false
+    showPlanes: true
   });
   document.body.appendChild(arDebug.getElement());
 
@@ -134,12 +134,26 @@ function init() {
   // the projection matrix provided from the device, so that the
   // perspective camera's depth planes and field of view matches
   // the physical camera on the device.
-  camera = new THREE.ARPerspectiveCamera(vrDisplay, 60, window.innerWidth / window.innerHeight, 1, 100);
+  camera = new THREE.ARPerspectiveCamera(
+    vrDisplay,
+    60,
+    window.innerWidth / window.innerHeight,
+    vrDisplay.depthNear,
+    vrDisplay.depthFar
+  );
 
-  // Create our ARReticle, which will continuously fire `hitTest` to trace
-  // the detected surfaces
+  // VRControls is a utility from three.js that applies the device's
+  // orientation/position to the perspective camera, keeping our
+  // real world and virtual world in sync.
+  vrControls = new THREE.VRControls(camera);
+
+  // Create the mesh geometry and add it to the scene. Set the position
+  // to (Infinity, Infinity, Infinity) so that it won't appear visible
+  // until the first hit is found, and move it there
   THREE.ARUtils.loadBlocksModel('obj/level_3_0_0.obj', 'obj/level_3_0_0.mtl').then(function (obj) {
     mesh = obj
+
+    // Place the mesh very far to initialize
     mesh.position.set(10000, 10000, 10000);
     mesh.scale.set(0.005, 0.005, 0.005);
     mesh.rotateX(-90 * Math.PI/180);
@@ -150,17 +164,13 @@ function init() {
     var light = new THREE.AmbientLight( 0xffffff );
     scene.add( light );
 
+    // Bind our event handlers
+    window.addEventListener('resize', onWindowResize, false);
+    canvas.addEventListener('touchstart', onClick, false);
+
+    // Kick off the render loop!
+    update();
   })
-
-  // VRControls is a utility from three.js that applies the device's
-  // orientation/position to the perspective camera, keeping our
-  // real world and virtual world in sync.
-  vrControls = new THREE.VRControls(camera);
-
-  // Bind our event handlers
-  window.addEventListener('resize', onWindowResize, false);
-
-  update();
 }
 
 /**
@@ -178,11 +188,6 @@ function update() {
   // Update our camera projection matrix in the event that
   // the near or far planes have updated
   camera.updateProjectionMatrix();
-
-  // Update our Mesh's position, and provide normalized
-  // screen coordinates to send the hit test -- in this case, (0.5, 0.5)
-  // is the middle of our screen
-  updateMesh();
 
   // Update our perspective camera's positioning
   vrControls.update();
@@ -207,15 +212,40 @@ function onWindowResize () {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function updateMesh() {
-  if (!vrDisplay || !vrDisplay.hitTest) {
-    return
+/**
+ * When clicking on the screen, fire a ray from where the user clicked
+ * on the screen and if a hit is found, place a mesh there.
+ */
+function onClick (e) {
+  // If we don't have a touches object, abort
+  // TODO: is this necessary?
+  if (!e.touches[0]) {
+    return;
   }
 
-  const hit = vrDisplay.hitTest(0.5, 0.5)
-  if (hit && hit.length > 0) {
-    this.visible = true
-    THREE.ARUtils.placeObjectAtHit(mesh, hit[0], 1, false)
+  // Inspect the event object and generate normalize screen coordinates
+  // (between 0 and 1) for the screen position.
+  var x = e.touches[0].pageX / window.innerWidth;
+  var y = e.touches[0].pageY / window.innerHeight;
+
+  // Send a ray from the point of click to the real world surface
+  // and attempt to find a hit. `hitTest` returns an array of potential
+  // hits.
+  var hits = vrDisplay.hitTest(x, y);
+  console.log(hits)
+
+  // If a hit is found, just use the first one
+  if (hits && hits.length) {
+    var hit = hits[0];
+    console.log(hit)
+    // Use the `placeObjectAtHit` utility to position
+    // the mesh where the hit occurred
+    THREE.ARUtils.placeObjectAtHit(mesh,  // The object to place
+                                   hit,   // The VRHit object to move the mesh to
+                                   1,     // Easing value from 0 to 1; we want to move
+                                          // the mesh directly to the hit position
+                                   false); // Whether or not we also apply orientation
+
   }
 }
 </script>
